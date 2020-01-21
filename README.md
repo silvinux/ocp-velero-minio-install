@@ -78,7 +78,7 @@ restic-pt9jp              1/1       Running     0          20m       10.129.0.77
 velero-77b4587448-9fvth   1/1       Running     0          21m       10.130.0.46   node1     <none>
 ```
 
-### We MUST add an annotation to the pods we want to make a backup of the PVC, this way Velero will be aware of which PVCs he must to backup in a specific namespace. Instead doing in the pod itself, because it's ephemeral, I rather to do it in the DeploymentConfig.
+#### We MUST add an annotation to the pods we want to make a backup of the PVC, this way Velero will be aware of which PVCs he must to backup in a specific namespace. Instead doing in the pod itself, because it's ephemeral, I rather to do it in the DeploymentConfig.
 
 ```
 $ ./get_pods_mounpoint.sh gogs
