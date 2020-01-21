@@ -1,0 +1,254 @@
+#############################################################################
+### Copyleft (.) Jan 2020                                                   ##
+### silvinux7@gmail.com                                                     ##
+##############################################################################
+### This program is free software; you can redistribute it and/or modify    ##
+### it under the terms of the GNU General Public License as published by    ##
+### the Free Software Foundation; either version 3 of the License, or       ##
+### (at your option) any later version.                                     ##
+###                                                                         ##
+### This program is distributed in the hope that it will be useful,         ##
+### but WITHOUT ANY WARRANTY; without even the implied warranty of          ##
+### MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           ##
+### GNU General Public License for more details.                            ##
+##############################################################################
+apiVersion: v1
+kind: Template
+metadata:
+  name: minio-deployment-template
+  annotations:
+    description: 'Template of minio deployment with NFS for velero'
+tags: 'minio,velero'
+
+parameters:
+  - name: STORAGE_CLASS_NAME_NFS
+    description: 'Storage class name for NFS'
+    value: 'nfs-minio'
+  - name: NAMESPACE_NAME
+    description: 'Name of the namespace'
+    value: 'velero'
+  - name: NFS_SEVER
+    description: 'NFS server'
+    value: 'nfs-lb.lab.example.com'
+  - name: PATH_MINIO_CONFIG_NFS_EXPORT
+    description: 'NFS path for pv minio configuration'
+    value: '/var/nfsshare/minio/config'
+  - name: SIZE_MINIO_CONFIG_NFS_EXPORT
+    description: 'NFS size for pv minio configuration'
+    value: '1Gi'
+  - name: PATH_MINIO_STORAGE_NFS_EXPORT
+    description: 'NFS path for pv minio storage'
+    value: '/var/nfsshare/minio/storage'
+  - name: SIZE_MINIO_STORAGE_NFS_EXPORT
+    description: 'NFS size for pv minio storage'
+    value: '3Gi'
+  - name: USER_MINIO_ACCESS_KEY
+    description: 'User to access minio'
+    value: 'minio'
+  - name: MINIO_IMAGE
+    description: 'Minio image to pull'
+    value: 'minio/minio:latest'
+  - name: PASSWORD_MINIO_SECRET_KEY
+    description: 'Password to access minio'
+    value: 'minio123'
+  - name: MINIO_ACCESS_ROUTE
+    description: 'Public URL to access minio'
+    value: 'minio.apps.lab.example.com'
+
+objects:
+  - apiVersion: storage.k8s.io/v1
+    kind: StorageClass
+    metadata:
+      name: ${STORAGE_CLASS_NAME_NFS}
+    provisioner: no-provisioning 
+    parameters: 
+
+  - apiVersion: v1
+    kind: Namespace
+    metadata:
+      name: ${NAMESPACE_NAME}
+
+  - apiVersion: v1
+    kind: PersistentVolume
+    metadata:
+      annotations:
+        pv.kubernetes.io/bound-by-controller: "yes"
+      finalizers:
+      - kubernetes.io/pv-protection
+      name: pv-minio-config
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      capacity:
+        storage: ${SIZE_MINIO_CONFIG_NFS_EXPORT}
+      claimRef:
+        apiVersion: v1
+        kind: PersistentVolumeClaim
+        name: pvc-minio-config
+        namespace: ${NAMESPACE_NAME}
+      nfs:
+        path: ${PATH_MINIO_CONFIG_NFS_EXPORT}
+        server: ${NFS_SEVER}
+      persistentVolumeReclaimPolicy: Retain
+      storageClassName: ${STORAGE_CLASS_NAME_NFS}
+
+  - apiVersion: v1
+    kind: PersistentVolume
+    metadata:
+      annotations:
+        pv.kubernetes.io/bound-by-controller: "yes"
+      finalizers:
+      - kubernetes.io/pv-protection
+      name: pv-minio-storage
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      capacity:
+        storage: ${SIZE_MINIO_STORAGE_NFS_EXPORT}
+      claimRef:
+        apiVersion: v1
+        kind: PersistentVolumeClaim
+        name: pvc-minio-storage
+        namespace: ${NAMESPACE_NAME}
+      nfs:
+        path: ${PATH_MINIO_STORAGE_NFS_EXPORT}
+        server: ${NFS_SEVER}
+      persistentVolumeReclaimPolicy: Retain
+      storageClassName: ${STORAGE_CLASS_NAME_NFS}
+
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      name: pvc-minio-config
+      namespace: ${NAMESPACE_NAME}
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: ${SIZE_MINIO_CONFIG_NFS_EXPORT}
+      volumeName: pv-minio-config
+      storageClassName: ${STORAGE_CLASS_NAME_NFS}
+
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      name: pvc-minio-storage
+      namespace: ${NAMESPACE_NAME}
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: ${SIZE_MINIO_STORAGE_NFS_EXPORT}
+      volumeName: pv-minio-storage
+      storageClassName: ${STORAGE_CLASS_NAME_NFS}
+
+  - apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      namespace: ${NAMESPACE_NAME}
+      name: minio
+      labels:
+        component: minio
+    spec:
+      strategy:
+        type: Recreate
+      selector:
+        matchLabels:
+          component: minio
+      template:
+        metadata:
+          labels:
+            component: minio
+        spec:
+          volumes:
+          - name: storage
+            persistentVolumeClaim:
+              claimName: pvc-minio-storage
+          - name: config
+            persistentVolumeClaim:
+              claimName: pvc-minio-config
+          containers:
+          - name: minio
+            image: ${MINIO_IMAGE}
+            imagePullPolicy: IfNotPresent
+            args:
+            - server
+            - /storage
+            - --config-dir=/config
+            env:
+            - name: MINIO_ACCESS_KEY
+              value: ${USER_MINIO_ACCESS_KEY}
+            - name: MINIO_SECRET_KEY
+              value: ${PASSWORD_MINIO_SECRET_KEY}
+            ports:
+            - containerPort: 9000
+            volumeMounts:
+            - name: storage
+              mountPath: "/storage"
+            - name: config
+              mountPath: "/config"
+
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      namespace: ${NAMESPACE_NAME}
+      name: minio
+      labels:
+        component: minio
+    spec:
+      # ClusterIP is recommended for production environments.
+      # Change to NodePort if needed per documentation,
+      # but only if you run Minio in a test/trial environment, for example with Minikube.
+      type: ClusterIP
+      ports:
+        - port: 9000
+          targetPort: 9000
+          protocol: TCP
+      selector:
+        component: minio
+
+  - apiVersion: route.openshift.io/v1
+    kind: Route
+    metadata:
+      name: minio
+      namespace: ${NAMESPACE_NAME}
+    spec:
+      host: ${MINIO_ACCESS_ROUTE}
+      port:
+        targetPort: 9000
+      to:
+        kind: Service
+        name: minio
+        weight: 100
+      wildcardPolicy: None
+
+  - apiVersion: batch/v1
+    kind: Job
+    metadata:
+      namespace: ${NAMESPACE_NAME}
+      name: minio-setup
+      labels:
+        component: minio
+    spec:
+      template:
+        metadata:
+          name: minio-setup
+        spec:
+          restartPolicy: OnFailure
+          volumes:
+          - name: config
+            persistentVolumeClaim:
+              claimName: pvc-minio-config
+          containers:
+          - name: mc
+            image: minio/mc:latest
+            imagePullPolicy: IfNotPresent
+            command:
+            - /bin/sh
+            - -c
+            - "mc --config-dir=/config config host add velero http://minio:9000 minio minio123 && mc --config-dir=/config mb -p velero/velero"
+            volumeMounts:
+            - name: config
+              mountPath: "/config"
