@@ -139,8 +139,8 @@ $ velero restore create --from-backup full-backup-[namespace] --namespace-mappin
 ```
 
 ##### Sources.
-https://github.com/vmware-tanzu/
-https://github.com/vmware-tanzu/velero-plugin-for-aws
-https://velero.io/docs/master/
-https://velero.io/docs/master/restic/
-https://blog.openshift.com/backup-openshift-resources-the-native-way/
+- https://github.com/vmware-tanzu/
+- https://github.com/vmware-tanzu/velero-plugin-for-aws
+- https://velero.io/docs/master/
+- https://velero.io/docs/master/restic/
+- https://blog.openshift.com/backup-openshift-resources-the-native-way/
