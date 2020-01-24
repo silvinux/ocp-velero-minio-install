@@ -20,7 +20,7 @@ $ git clone https://github.com/silvinux/ocp-velero-minio-install.git
 $ oc process -f minio-deployment-template.yaml USER_MINIO_ACCESS_KEY=minio PASSWORD_MINIO_SECRET_KEY=minio123 \ 
 MINIO_ACCESS_ROUTE=minio.apps.lab.example.com NFS_SEVER=nfs-lb.lab.example.com \
 PATH_MINIO_CONFIG_NFS_EXPORT=/var/nfsshare/minio/config SIZE_MINIO_CONFIG_NFS_EXPORT=1Gi \
-PATH_MINIO_STORAGE_NFS_EXPORT=/var/nfsshare/minio/storage SIZE_MINIO_STORAGE_NFS_EXPORT=3Gi |oc create -f 
+PATH_MINIO_STORAGE_NFS_EXPORT=/var/nfsshare/minio/storage SIZE_MINIO_STORAGE_NFS_EXPORT=3Gi |oc create -f -
 ```
 
 
